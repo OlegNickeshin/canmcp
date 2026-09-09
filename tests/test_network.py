@@ -1,5 +1,4 @@
 import asyncio
-import socket
 import ssl
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -71,45 +70,6 @@ async def test_dns_blocks_all_mixed_and_nonpublic_answers(monkeypatch, ips):
 async def test_noncanonical_ip_is_blocked_without_dns(host):
     with pytest.raises(ScanError):
         await PublicResolver().resolve(host, 80)
-
-
-@pytest.fixture
-async def serve():
-    runners = []
-
-    async def start(handler, ssl_context=None):
-        app = web.Application()
-        app.router.add_route("*", "/{path:.*}", handler)
-        runner = web.AppRunner(app, shutdown_timeout=0.1)
-        await runner.setup()
-        runners.append(runner)
-        site = web.TCPSite(runner, "127.0.0.1", 0, ssl_context=ssl_context)
-        await site.start()
-        port = site._server.sockets[0].getsockname()[1]
-        scheme = "https" if ssl_context else "http"
-        return f"{scheme}://scanner.example.com:{port}"
-
-    yield start
-    for runner in runners:
-        await runner.cleanup()
-
-
-@pytest.fixture
-def local_route(monkeypatch):
-    # Test-only resolver injection. The production scanner has no private-network flag.
-    async def resolve(self, host, port=0, family=socket.AF_UNSPEC):
-        return [
-            dict(
-                hostname=host,
-                host="127.0.0.1",
-                port=port,
-                family=socket.AF_INET,
-                proto=socket.IPPROTO_TCP,
-                flags=socket.AI_NUMERICHOST,
-            )
-        ]
-
-    monkeypatch.setattr(PublicResolver, "resolve", resolve)
 
 
 async def test_real_sse_stops_without_waiting_for_close(serve, local_route):

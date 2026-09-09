@@ -5,6 +5,7 @@ import re
 
 from yarl import URL
 
+from canmcp import __version__
 from canmcp.checks.network import ScanError
 from canmcp.checks.oauth import check_oauth
 from canmcp.checks.schemas import check_tools
@@ -31,7 +32,7 @@ def rpc_message(method, id, params, version):
         headers["Mcp-Method"] = method
         params["_meta"] = {
             "io.modelcontextprotocol/protocolVersion": LATEST,
-            "io.modelcontextprotocol/clientInfo": {"name": "canmcp", "version": "0.1.0"},
+            "io.modelcontextprotocol/clientInfo": {"name": "canmcp", "version": __version__},
             "io.modelcontextprotocol/clientCapabilities": {},
         }
     message = {"jsonrpc": "2.0", "method": method, "params": params}
@@ -110,7 +111,7 @@ def capabilities(value):
     return value
 
 
-async def check_protocol(http, evidence: Evidence):
+async def check_protocol(http, evidence: Evidence, *, credential=None, issuer=None):
     current = evidence.url
     session = None
     sequence = 0
@@ -122,7 +123,8 @@ async def check_protocol(http, evidence: Evidence):
         message, headers = rpc_message(method, id, params, version)
         if session:
             headers["Mcp-Session-Id"] = session
-        response = await http.request("POST", current, payload=message, headers=headers)
+        kwargs = {"credential": credential} if credential is not None else {}
+        response = await http.request("POST", current, payload=message, headers=headers, **kwargs)
         current = response.url
         evidence.final_url = current
         if response.redirects:
@@ -133,6 +135,14 @@ async def check_protocol(http, evidence: Evidence):
                 "configure the canonical endpoint URL.",
             )
         return response, id
+
+    async def protected(response):
+        if credential is not None:
+            raise ScanError(
+                "oauth.authorized_probe",
+                "MCP endpoint rejected the obtained token (401/403); no automatic login retry.",
+            )
+        await check_oauth(http, response, evidence, issuer=issuer)
 
     response, id = await request("server/discover", {}, LATEST)
     evidence.add("reachability", Status.PASS, f"Endpoint responded with HTTP {response.status}.")
@@ -157,7 +167,7 @@ async def check_protocol(http, evidence: Evidence):
     if not any(c.id == "redirects" for c in evidence.checks):
         evidence.add("redirects", Status.PASS, "Initial MCP request did not redirect.")
     if response.status in {401, 403}:
-        await check_oauth(http, response, evidence)
+        await protected(response)
         return
 
     modern = False
@@ -212,12 +222,12 @@ async def check_protocol(http, evidence: Evidence):
             {
                 "protocolVersion": LEGACY[0],
                 "capabilities": {},
-                "clientInfo": {"name": "canmcp", "version": "0.1.0"},
+                "clientInfo": {"name": "canmcp", "version": __version__},
             },
             None,
         )
         if response.status in {401, 403}:
-            await check_oauth(http, response, evidence)
+            await protected(response)
             return
         initialized = result(response, id)
         version = initialized.get("protocolVersion")
@@ -254,6 +264,9 @@ async def check_protocol(http, evidence: Evidence):
             SOURCE,
         )
         response, _ = await request("notifications/initialized", {}, version)
+        if response.status in {401, 403}:
+            await protected(response)
+            return
         if response.status != 202 or response.body:
             raise ScanError(
                 "mcp.initialized",
@@ -284,7 +297,7 @@ async def check_protocol(http, evidence: Evidence):
             params = {} if cursor is None else {"cursor": cursor}
             response, id = await request("tools/list", params, evidence.protocol_version)
             if response.status in {401, 403}:
-                await check_oauth(http, response, evidence)
+                await protected(response)
                 return
             listing = result(response, id, modern=modern)
             page = listing.get("tools")
@@ -311,7 +324,11 @@ async def check_protocol(http, evidence: Evidence):
         headers = {"Accept": "text/event-stream", "MCP-Protocol-Version": evidence.protocol_version}
         if session:
             headers["Mcp-Session-Id"] = session
-        response = await http.request("GET", current, headers=headers, headers_only=True)
+        kwargs = {"credential": credential} if credential is not None else {}
+        response = await http.request("GET", current, headers=headers, headers_only=True, **kwargs)
+        if response.status in {401, 403}:
+            await protected(response)
+            return
         if response.redirects:
             evidence.add(
                 "redirects.get",

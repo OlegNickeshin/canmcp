@@ -43,3 +43,23 @@ diagnostic evidence. The [official conformance repository](https://github.com/mo
 remains the implementation test suite. Its revision-scoped requirements and active tool scenarios
 are not duplicated or run implicitly. [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector)
 is a separate interactive debugging tool and may execute tools when used to do so.
+
+## Interactive OAuth in v0.2
+
+These are generic OAuth/MCP checks, not invented ChatGPT or Claude requirements:
+
+| Behavior | Primary source |
+| --- | --- |
+| Authorization code, S256 PKCE, resource parameter on both authorization and token requests, Bearer authorization header | [MCP authorization](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization) |
+| Prefer explicitly supplied pre-registration; native DCR as a deprecated fallback; do not require DCR universally | [MCP client registration](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/client-registration) |
+| Public HTTPS authorization/token endpoints and protection of credentials | [MCP authorization security](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/security-considerations) |
+| External browser and loopback IP redirect with a temporary listener | [RFC 8252, sections 7.3 and 8](https://www.rfc-editor.org/rfc/rfc8252) |
+| Random verifier and SHA-256 challenge | [RFC 7636, section 4](https://www.rfc-editor.org/rfc/rfc7636) |
+| Validate callback issuer, require it when advertised | [RFC 9207, sections 2 and 3](https://www.rfc-editor.org/rfc/rfc9207), [MCP authorization](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization) |
+| Form-encoded code exchange and percent-encoded HTTP Basic client credentials | [RFC 6749, sections 2.3.1 and 4.1](https://www.rfc-editor.org/rfc/rfc6749) |
+| Public-client DCR request/response and exact callback confirmation | [RFC 7591, sections 2 and 3](https://www.rfc-editor.org/rfc/rfc7591) |
+
+Exact-URL token binding, refusing credential redirects, issuer pinning for pre-registered clients,
+manual link opening, no token persistence, and scanner limits are CanMCP safety policies. They
+may prevent inspection of configurations that other clients support. A successful login tests
+the CanMCP registration only; the ChatGPT/Claude profiles remain evidence-based heuristics.

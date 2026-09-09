@@ -1,6 +1,8 @@
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 
+from canmcp import __version__
+
 
 class Status(StrEnum):
     PASS = "pass"
@@ -41,11 +43,11 @@ class Report:
     advertised_versions: list[str] = field(default_factory=list)
     final_url: str | None = None
     schema_version: str = "1"
-    scanner_version: str = "0.1.0"
+    scanner_version: str = __version__
     limitations: list[str] = field(
         default_factory=lambda: [
             "A bounded local observation, not protocol certification or a cloud-client test.",
-            "No tools/call, OAuth login, registration, token exchange, or remote schema retrieval.",
+            "No tools/call or remote schema retrieval. OAuth runs only when explicitly requested.",
             "Cloud routing, account policies, and tool behavior are not verified.",
         ]
     )
@@ -68,6 +70,8 @@ class Evidence:
     missing_claude_hints: int = 0
     tool_count: int = 0
     auth_servers: list[dict] = field(default_factory=list)
+    resource: str | None = None
+    oauth_scopes: list[str] = field(default_factory=list)
 
     def add(self, id: str, status: Status, message: str, source: str | None = None) -> None:
         self.checks.append(Check(id, status, message, source))

@@ -15,7 +15,7 @@ canmcp check https://example.com/mcp
 canmcp check https://example.com/mcp --json
 ```
 
-This initial source project has not been published to PyPI. From a clone, install it now:
+This source project has not been published to PyPI. From a clone, install it now:
 
 ```sh
 cd canmcp
@@ -33,6 +33,58 @@ canmcp check https://example.com/mcp --timeout 15
 canmcp check https://example.com/mcp --json > report.json
 python -m canmcp --version
 ```
+
+### Inspecting a protected endpoint
+
+Version 0.2 adds optional interactive OAuth. The default command only inspects metadata;
+it never signs in or registers a client. To authorize a protected MCP inspection:
+
+```sh
+canmcp check https://example.com/mcp --oauth
+canmcp check https://example.com/mcp --oauth --json > report.json
+```
+
+CanMCP prints an authorization link to **stderr**. Open it in a browser on the same machine
+and review the provider's consent screen. The browser returns to a temporary listener at
+`http://127.0.0.1:PORT/oauth/callback`. No deployed server is needed. The listener binds only
+loopback, accepts one authorization result, and closes on completion, timeout, or interruption.
+The default browser wait is 180 seconds; `--oauth-timeout 300` changes it, up to 600 seconds.
+
+Without `--client-id`, CanMCP attempts Dynamic Client Registration (DCR) for a public native
+client if advertised. **This creates a client registration at the provider that may persist.**
+CanMCP neither saves the registration nor deletes it afterward. Current MCP guidance prefers
+pre-registration or Client ID Metadata Documents (CIMD); DCR is a deprecated compatibility
+fallback. If DCR is unavailable, the report explains that client configuration is needed.
+CanMCP does not host a CIMD document.
+
+To use an existing registration, configure its redirect URI as
+`http://127.0.0.1:8765/oauth/callback`, then pass the provider's exact issuer and client ID:
+
+```sh
+canmcp check https://example.com/mcp --oauth \
+  --issuer https://auth.example.com \
+  --client-id YOUR_CLIENT_ID --callback-port 8765
+```
+
+The issuer must exactly match one advertised in the resource metadata. Public clients use
+`none` token authentication. For a pre-registered client that requires a secret, place it in
+an environment variable yourself and add `--client-secret-env CANMCP_CLIENT_SECRET`.
+CanMCP reads only that explicitly named variable. The default with a secret is
+`client_secret_basic`; use `--token-auth-method client_secret_post` if your registration
+requires it. Secrets cannot be supplied as command-line values. `private_key_jwt` is not
+implemented.
+
+Scopes come from the Bearer challenge, falling back to resource metadata. To choose explicit
+scopes, use `--scope tools.read`, repeating the flag for additional scopes. CanMCP adds no
+offline-access scope of its own and never refreshes tokens. A public endpoint needs no login,
+even with `--oauth`.
+
+After a successful code exchange using S256 PKCE, CanMCP repeats MCP discovery/initialization
+and `tools/list` with the token. Tokens stay in process memory for the scan and are bound to
+the **exact final MCP URL**; OAuth writes and authenticated MCP requests never follow redirects.
+The report contains no code, verifier, state, client secret, or token. The separate login link
+necessarily contains state, the PKCE challenge, and the public client ID. Login tests CanMCP's
+client registration, not ChatGPT's or Claude's actual OAuth integration.
 
 An illustrative result for a valid server with incomplete ChatGPT tool metadata:
 
@@ -82,7 +134,7 @@ JSON shape (abbreviated):
   "advertised_versions": [],
   "final_url": "https://example.com/mcp",
   "schema_version": "1",
-  "scanner_version": "0.1.0",
+  "scanner_version": "0.2.0",
   "limitations": ["Local observation; no cloud-client connection was performed."]
 }
 ```
@@ -92,7 +144,7 @@ or a version error, not independently verified support for every listed version.
 omit userinfo, query strings and fragments; the request still uses the supplied query. Server
 messages, instructions, descriptions, tool names, and tokens are not copied into reports.
 
-## Checks in v0.1
+## Checks in v0.2
 
 | Area | Implemented inspection |
 | --- | --- |
@@ -105,15 +157,17 @@ messages, instructions, descriptions, tool names, and tokens are not copied into
 | Initialization | Legacy identity/capabilities, negotiated revision, session ID, initialized notification and HTTP 202 |
 | Tools | Capability-aware `tools/list`, pagination, descriptor types, input/output JSON Schema dialect validation and modern `x-mcp-header` constraints |
 | Protected endpoints | On 401/403: Bearer `WWW-Authenticate`, Protected Resource Metadata, RFC 8414/OIDC discovery, resource/issuer binding, HTTPS endpoint URLs, authorization-code flow, advertised S256 PKCE, DCR and CIMD |
+| Optional OAuth login | Public DCR or pre-registered client; S256 PKCE, random state, callback issuer validation, resource parameter at authorization and token endpoints, Bearer response validation, authenticated MCP inspection |
 | Client profiles | ChatGPT public HTTPS and tool metadata; ChatGPT/Claude registration-method differences; Claude tool hints |
 
 Schema validation is static. Remote references and unknown dialects produce incomplete-coverage
 warnings; reference graphs are not evaluated against tool arguments. Tool annotations are untrusted
 claims: CanMCP checks their types, not whether a tool actually is safe or read-only.
 
-Protected endpoints are reported as **WARN or FAIL**, never as a fully verified protocol PASS:
-without signing in, `initialize`/`tools/list` may be inaccessible. PKCE and DCR checks concern
-metadata advertisement. CanMCP does not attempt registration or prove PKCE enforcement.
+Without `--oauth`, protected endpoints are reported as **WARN or FAIL** because protected
+operations remain unverified. With a successful login and completed checks, generic MCP can
+**PASS**. Metadata inspection alone checks advertised PKCE/DCR support; optional login exercises
+a valid PKCE exchange but does not attempt invalid-verifier attacks to prove server enforcement.
 The first usable authorization server is inspected (at most three candidates); other providers
 may differ. Absence of DCR is not a generic failure: CIMD and pre-registration are valid alternatives.
 
@@ -135,12 +189,16 @@ See [sources and rule rationale](docs/sources.md) for the exact official links a
 
 ## Safety and limits
 
-Only `server/discover`, `initialize`, `notifications/initialized`, `tools/list`, legacy transport
-GET, and OAuth metadata GET are sent. The server can still log requests or allocate a legacy MCP
-session. No arbitrary MCP tools, server-supplied commands, URLs from tool schemas, sampling,
-elicitation, or resource reads are executed. No credentials are read from the environment.
+MCP requests are limited to `server/discover`, `initialize`, `notifications/initialized`,
+`tools/list`, and legacy transport GET. Default OAuth inspection uses only metadata GET.
+Explicit `--oauth` additionally permits DCR POST and authorization-code token exchange POST.
+The server can log requests, allocate a legacy MCP session, or retain a DCR registration.
+No arbitrary MCP tools, server-supplied commands, URLs from tool schemas, sampling, elicitation,
+or resource reads are executed. Environment credentials are read only when a variable is
+explicitly named with `--client-secret-env`.
 
-All HTTP destinations, including metadata and redirects, cross the same SSRF boundary. DNS
+All outbound scanner HTTP destinations, including OAuth writes, metadata, and redirects,
+cross the same SSRF boundary. DNS
 answers are checked immediately before connection and handed to the connector as numeric IPs.
 TLS SNI and HTTP Host still use the intended hostname. There is no second hostname lookup between
 validation and connection, DNS cache, connection reuse, cookie jar, or environment proxy.
@@ -149,12 +207,23 @@ IPv6 transition targets are refused. There is no public CLI override for private
 DNS uses the machine's configured resolver, with search suffix expansion disabled; `/etc/hosts`
 overrides are not used. DNS traffic itself goes to that trusted local resolver.
 
+The OAuth callback is an inbound loopback listener, not an exception for outbound requests:
+scanning localhost stays forbidden. The callback handler returns fixed text, disables caching,
+and includes no external assets; access and HTTP error logging are disabled. Browser navigation is outside the
+scanner's network boundary. CanMCP checks the authorization endpoint's public DNS addresses
+before displaying its link but cannot constrain a separate browser's DNS resolution, redirects,
+extensions, or history. It does not launch the browser automatically.
+
 Defaults: 10 seconds per request (configurable up to 30), 5 seconds per DNS resolution,
-60 seconds per scan, 32 HTTP requests, five redirects per request, 1 MiB per body/SSE exchange,
+60 seconds per MCP inspection phase, 32 HTTP requests across the whole scan, five redirects
+per unauthenticated request, 1 MiB per body/SSE exchange,
 128 HTTP headers with bounded fields, 48 JSON nesting levels, 30,000 JSON nodes per response,
 64 KiB/4,000 nodes per schema, 500 tools, and 10 list pages. Duplicate JSON keys and non-finite
 numbers are rejected. Compressed bodies are not decoded. Limits are scanner policy, not invented
 MCP/client requirements. They can produce WARN for an otherwise valid large or slow server.
+OAuth adds the configured browser wait plus a 60-second budget for setup and token exchange;
+the authenticated MCP phase has its own 60-second budget. Callback input is bounded to 128
+requests, 16 query parameters, and an 8 KiB request line.
 
 A local scanner cannot prove reachability from OpenAI or Anthropic IP ranges, inspect account
 policies, detect every WAF rule, audit tool behavior, or compensate for a compromised local
@@ -171,15 +240,17 @@ python -m build
 ```
 
 Tests use scripted responses and local HTTP/TLS fixtures, including real certificate validation.
+OAuth tests exercise a TLS authorization provider, DCR, browser redirects to the real loopback
+callback, PKCE verification, token exchange, and protected MCP requests. Failure cases cover
+issuer mix-ups, invalid state, denied authorization, timeouts, malformed token responses, credential
+redirects, and callback cleanup. No real provider login or arbitrary tool call is required.
 They need permission to bind loopback sockets, but no internet access. Only test fixtures replace
 the resolver to route public-looking test names to loopback. Production policy stays enabled.
 
-## Deliberately outside v0.1
+## Deliberately outside v0.2
 
-No cloud-side probes, OAuth login/token exchange/DCR writes, tool execution, full conformance
-suite, deprecated 2024 HTTP+SSE transport, stdio, SSE resumption, MRTR interaction, resources or
-prompts inspection, schema reference fetching, certificate revocation audit, dashboard, hosted
-server, users, database, payments, or telemetry.
-
-One next step for v0.2: an opt-in interactive OAuth authorization-code + PKCE flow, with
-origin-bound token handling, to verify protected `initialize` and `tools/list` after user consent.
+No cloud-side probes, token persistence/refresh/revocation, automatic scope escalation, hosted
+CIMD document, DCR registration cleanup, private-key client authentication, device-code login,
+tool execution, full conformance suite, deprecated 2024 HTTP+SSE transport, stdio, SSE resumption,
+MRTR interaction, resources or prompts inspection, schema reference fetching, certificate
+revocation audit, dashboard, hosted server, users, database, payments, or telemetry.

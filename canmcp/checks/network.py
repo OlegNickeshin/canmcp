@@ -1,4 +1,4 @@
-"""One network boundary for MCP, redirects, and OAuth discovery.
+"""One outbound network boundary for MCP, redirects, and OAuth requests.
 
 The connector dials only the numeric addresses returned by PublicResolver, while
 keeping the URL hostname for TLS SNI/certificate verification and HTTP Host.
@@ -9,15 +9,19 @@ import asyncio
 import ipaddress
 import json
 import math
+import re
 import socket
 import ssl
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 
 import aiohttp
 import dns.asyncresolver
 import dns.exception
 from aiohttp.abc import AbstractResolver
 from yarl import URL
+
+from canmcp import __version__
 
 MAX_BODY = 1_048_576
 MAX_REQUESTS = 32
@@ -29,6 +33,31 @@ class ScanError(Exception):
     def __init__(self, check_id: str, message: str):
         self.check_id = check_id
         super().__init__(message)
+
+
+@dataclass(repr=False)
+class BearerToken:
+    """An in-memory bearer credential bound to one exact MCP endpoint, not its metadata."""
+
+    endpoint: str
+    value: str = field(repr=False)
+    expires_at: float | None = None
+
+    def header(self, url: str) -> str:
+        target = validate_url(url)
+        if target.scheme != "https" or target != URL(self.endpoint):
+            raise ScanError("oauth.token_binding", "Token is bound to a different MCP endpoint.")
+        if self.expires_at is not None and time.monotonic() >= self.expires_at:
+            raise ScanError(
+                "oauth.token_expired", "Access token expired before inspection finished."
+            )
+        if (
+            not isinstance(self.value, str)
+            or len(self.value) > 8192
+            or not re.fullmatch(r"[A-Za-z0-9._~+/-]+=*", self.value)
+        ):
+            raise ScanError("oauth.token", "Token is not a bounded HTTP Bearer credential.")
+        return "Bearer " + self.value
 
 
 def public_ip(value: str) -> bool:
@@ -265,17 +294,34 @@ class SafeHTTP:
             auto_decompress=False,
             cookie_jar=aiohttp.DummyCookieJar(),
             max_headers=128,
-            headers={"User-Agent": "canmcp/0.1.0", "Accept-Encoding": "identity"},
+            headers={"User-Agent": f"canmcp/{__version__}", "Accept-Encoding": "identity"},
         )
         return self
 
     async def __aexit__(self, *args):
         await self.session.close()
 
-    async def request(self, method, url, *, headers=None, payload=None, headers_only=False):
+    async def request(
+        self,
+        method,
+        url,
+        *,
+        headers=None,
+        payload=None,
+        headers_only=False,
+        form=None,
+        follow_redirects=True,
+        credential: BearerToken | None = None,
+    ):
         current = validate_url(url)
         history = []
         outgoing = dict(headers or {})
+        if form is not None and payload is not None:
+            raise ValueError("Choose form or JSON payload, not both")
+        if credential is not None:
+            if any(key.lower() == "authorization" for key in outgoing):
+                raise ValueError("Authorization header is managed by the bound credential")
+            outgoing["Authorization"] = credential.header(str(current))
         for _ in range(6):
             self.count += 1
             if self.count > MAX_REQUESTS:
@@ -286,11 +332,23 @@ class SafeHTTP:
                     current,
                     headers=outgoing,
                     json=payload,
+                    data=form,
                     allow_redirects=False,
                     max_line_size=8190,
                     max_field_size=8190,
                 ) as response:
                     if response.status in REDIRECTS:
+                        if (
+                            not follow_redirects
+                            or form is not None
+                            or credential is not None
+                            or any(key.lower() == "authorization" for key in outgoing)
+                        ):
+                            raise ScanError(
+                                "oauth.redirects",
+                                "OAuth writes and authenticated MCP requests "
+                                "do not follow redirects.",
+                            )
                         location = response.headers.get("Location")
                         if not location:
                             raise ScanError("redirects", "Redirect has no Location header.")

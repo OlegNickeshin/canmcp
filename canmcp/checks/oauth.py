@@ -151,7 +151,7 @@ async def fetch_document(http, candidates):
     raise ScanError("oauth.metadata", "No metadata document found at the standard discovery URLs.")
 
 
-async def check_oauth(http, response, evidence: Evidence):
+async def check_oauth(http, response, evidence: Evidence, *, issuer: str | None = None):
     evidence.protected = True
     evidence.add(
         "oauth.authentication",
@@ -198,7 +198,13 @@ async def check_oauth(http, response, evidence: Evidence):
             "oauth.resource", "Resource identifier does not match this endpoint or its origin."
         )
     issuers = string_list(resource, "authorization_servers", required=True)
-    string_list(resource, "scopes_supported")
+    scopes = string_list(resource, "scopes_supported")
+    evidence.resource = identifier
+    evidence.oauth_scopes = challenge["scope"].split(" ") if "scope" in challenge else scopes
+    if issuer is not None:
+        if issuer not in issuers:
+            raise ScanError("oauth.issuer", "Pinned issuer is not advertised by this resource.")
+        issuers = [issuer]
     evidence.add(
         "oauth.protected_resource",
         Status.PASS,
@@ -228,7 +234,7 @@ async def check_oauth(http, response, evidence: Evidence):
             evidence.add(
                 "oauth.dcr",
                 Status.PASS,
-                "DCR endpoint advertised; no registration performed."
+                "DCR endpoint advertised; discovery alone does not attempt registration."
                 if dcr
                 else "DCR is not advertised; optional when CIMD or pre-registration is used.",
                 AUTH_SOURCE,

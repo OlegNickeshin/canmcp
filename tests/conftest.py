@@ -1,9 +1,11 @@
 import copy
 import json
+import socket
 
 import pytest
+from aiohttp import web
 
-from canmcp.checks.network import Response
+from canmcp.checks.network import PublicResolver, Response
 from canmcp.checks.protocol import LATEST
 
 URL = "https://mcp.example.com/mcp"
@@ -13,6 +15,45 @@ TOOL = {
     "annotations": {"readOnlyHint": True, "destructiveHint": False},
     "inputSchema": {"type": "object", "properties": {"city": {"type": "string"}}},
 }
+
+
+@pytest.fixture
+async def serve():
+    runners = []
+
+    async def start(handler, ssl_context=None):
+        app = web.Application()
+        app.router.add_route("*", "/{path:.*}", handler)
+        runner = web.AppRunner(app, access_log=None, shutdown_timeout=0.1)
+        await runner.setup()
+        runners.append(runner)
+        site = web.TCPSite(runner, "127.0.0.1", 0, ssl_context=ssl_context)
+        await site.start()
+        port = runner.addresses[0][1]
+        scheme = "https" if ssl_context else "http"
+        return f"{scheme}://scanner.example.com:{port}"
+
+    yield start
+    for runner in runners:
+        await runner.cleanup()
+
+
+@pytest.fixture
+def local_route(monkeypatch):
+    # Only tests route public-looking fixture hostnames to loopback.
+    async def resolve(self, host, port=0, family=socket.AF_UNSPEC):
+        return [
+            dict(
+                hostname=host,
+                host="127.0.0.1",
+                port=port,
+                family=socket.AF_INET,
+                proto=socket.IPPROTO_TCP,
+                flags=socket.AI_NUMERICHOST,
+            )
+        ]
+
+    monkeypatch.setattr(PublicResolver, "resolve", resolve)
 
 
 def response(body=None, status=200, url=URL, headers=None):
