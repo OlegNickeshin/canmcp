@@ -14,6 +14,24 @@ Part of **tools for an agent-native web**: small, independent open-source tools 
 agents to useful services. See the
 [project series](https://github.com/OlegNickeshin/canmcp/blob/main/docs/series.md).
 
+## For AI agents
+
+Use CanMCP when a user asks why a remote MCP endpoint will not connect, or wants
+protocol, TLS and OAuth diagnostics before configuring an MCP client. The
+[CanMCP skill](skills/canmcp/SKILL.md) explains when to run the CLI, how to read
+its JSON findings, and when an authenticated check needs separate permission.
+
+Example tasks:
+
+- "Diagnose why this MCP endpoint fails to connect in my client."
+- "Check this remote MCP server without executing any of its tools."
+- "Inspect the OAuth metadata and explain what remains unverified."
+
+Agents need a terminal, Python 3.11+ and direct network access to run CanMCP.
+The skill can be loaded by a skill-capable agent; it is not a remote connector
+URL. A chat client without command execution must ask the user to run the CLI.
+CanMCP remains a CLI, not a server published in the Official MCP Registry.
+
 ## Usage
 
 Install from PyPI:

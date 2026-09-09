@@ -12,7 +12,7 @@ requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 dependencies = ["aiohttp>=3.14.3,<4", "jsonschema>=4.23,<5", "dnspython>=2.7,<3"]
-keywords = ["mcp", "model-context-protocol", "cli", "compatibility", "chatgpt", "claude", "oauth", "developer-tools"]
+keywords = ["mcp", "model-context-protocol", "cli", "compatibility", "chatgpt", "claude", "oauth", "developer-tools", "ai-agents", "agent-skills", "mcp-diagnostics", "mcp-testing"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
@@ -30,6 +30,7 @@ Repository = "https://github.com/OlegNickeshin/canmcp"
 Issues = "https://github.com/OlegNickeshin/canmcp/issues"
 Changelog = "https://github.com/OlegNickeshin/canmcp/blob/main/CHANGELOG.md"
 Releases = "https://github.com/OlegNickeshin/canmcp/releases"
+"Agent Skill" = "https://github.com/OlegNickeshin/canmcp/blob/main/skills/canmcp/SKILL.md"
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "pytest-asyncio>=1,<2", "ruff>=0.12", "build>=1.2", "trustme>=1.2"]
