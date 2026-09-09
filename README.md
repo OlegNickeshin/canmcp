@@ -32,6 +32,11 @@ The skill can be loaded by a skill-capable agent; it is not a remote connector
 URL. A chat client without command execution must ask the user to run the CLI.
 CanMCP remains a CLI, not a server published in the Official MCP Registry.
 
+Discovery listings:
+
+- [GitHub Agent Finder submission](https://github.com/github/agentfinder-catalog/pull/41) — submitted for review; inclusion pending.
+- [PeopleMCP project](https://people-mcp.194-87-35-210.sslip.io/projects/canmcp) — available through `search_projects`.
+
 ## Usage
 
 Install from PyPI:
