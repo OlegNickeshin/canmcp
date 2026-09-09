@@ -1,7 +1,7 @@
 # Releasing CanMCP
 
 The GitHub repository is <https://github.com/OlegNickeshin/canmcp>.
-The intended PyPI distribution name is `canmcp`.
+The published PyPI distribution is [canmcp](https://pypi.org/project/canmcp/).
 
 ## Build and verify
 
@@ -21,13 +21,14 @@ python -m twine check --strict release-dist/*
 Use a fresh output directory for every version. Match the version in `pyproject.toml` and
 `canmcp/__init__.py` to the release tag. Test the built wheel from outside the source directory
 before uploading it. Release assets should include the wheel, source archive, and SHA-256 sums.
+Check the README's installation instructions before building: its text becomes the package
+description on PyPI. Replace the example version below with the new version being released.
 
 ## Publish to PyPI
 
 Publication requires a PyPI account with a verified email address, the account's required
-authentication setup, and permission to publish the project. For the first upload, PyPI needs
-an account-scoped API token because the project does not yet exist. Subsequent tokens can be
-restricted to `canmcp`. Review the
+authentication setup, and permission to publish the project. The project now exists, so use
+an API token scoped to `canmcp`. Review the
 [official packaging guide](https://packaging.python.org/en/latest/tutorials/packaging-projects/#uploading-the-distribution-archives).
 
 Twine can ask for the API token in the local terminal with hidden input:
@@ -43,8 +44,8 @@ Do not put a token in a commit, release body, issue, chat, or command-line argum
 its owner. See the [.pypirc specification](https://packaging.python.org/en/latest/specifications/pypirc/).
 
 After the upload, verify the version on PyPI and install `canmcp==0.2.0` into a fresh environment
-using `https://pypi.org/simple/`. Remove the pending-publication notice from the README only
-after the upload has succeeded. PyPI does not allow reusing an uploaded distribution filename.
+using `https://pypi.org/simple/`. Update the GitHub release notes after the upload succeeds.
+PyPI does not allow reusing an uploaded distribution filename.
 
 [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) is the preferred future
 automation path. It requires a configured PyPI publisher and a working CI runner. A pending

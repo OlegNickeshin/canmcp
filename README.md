@@ -5,6 +5,7 @@ Your MCP server can be spec-compliant and still fail in ChatGPT or Claude. CanMC
 A small, open-source CLI for diagnosing public remote MCP endpoints from your own machine.
 No hosted service, account, database, dashboard, or API key. Python 3.11+; MIT licensed.
 
+[PyPI](https://pypi.org/project/canmcp/) ·
 [Releases](https://github.com/OlegNickeshin/canmcp/releases) ·
 [Report a bug](https://github.com/OlegNickeshin/canmcp/issues) ·
 [MIT license](https://github.com/OlegNickeshin/canmcp/blob/main/LICENSE)
@@ -15,7 +16,7 @@ agents to useful services. See the
 
 ## Usage
 
-After a release is published to PyPI:
+Install from PyPI:
 
 ```sh
 pip install canmcp
@@ -23,7 +24,7 @@ canmcp check https://example.com/mcp
 canmcp check https://example.com/mcp --json
 ```
 
-PyPI publication is pending. Install from GitHub now:
+To install from source:
 
 ```sh
 git clone https://github.com/OlegNickeshin/canmcp.git
