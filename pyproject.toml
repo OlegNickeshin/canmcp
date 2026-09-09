@@ -1,20 +1,39 @@
 [build-system]
-requires = ["setuptools>=77"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "canmcp"
 version = "0.2.0"
-description = "Local, safety-bounded remote MCP compatibility diagnostics"
+description = "Check remote MCP endpoints for protocol, OAuth, ChatGPT and Claude compatibility"
+authors = [{name = "OlegNickeshin"}]
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
+license-files = ["LICENSE"]
 dependencies = ["aiohttp>=3.14.3,<4", "jsonschema>=4.23,<5", "dnspython>=2.7,<3"]
-keywords = ["mcp", "cli", "compatibility", "chatgpt", "claude"]
-classifiers = ["Development Status :: 3 - Alpha", "Environment :: Console", "Programming Language :: Python :: 3"]
+keywords = ["mcp", "model-context-protocol", "cli", "compatibility", "chatgpt", "claude", "oauth", "developer-tools"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Testing",
+]
+
+[project.urls]
+Homepage = "https://github.com/OlegNickeshin/canmcp"
+Documentation = "https://github.com/OlegNickeshin/canmcp#readme"
+Repository = "https://github.com/OlegNickeshin/canmcp"
+Issues = "https://github.com/OlegNickeshin/canmcp/issues"
+Changelog = "https://github.com/OlegNickeshin/canmcp/blob/main/CHANGELOG.md"
+Releases = "https://github.com/OlegNickeshin/canmcp/releases"
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "pytest-asyncio>=1,<2", "ruff>=0.12", "build>=1.2", "trustme>=1.2"]
+release = ["build>=1.2", "twine>=6,<7"]
 
 [project.scripts]
 canmcp = "canmcp.cli:main"

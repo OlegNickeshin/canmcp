@@ -5,6 +5,14 @@ Your MCP server can be spec-compliant and still fail in ChatGPT or Claude. CanMC
 A small, open-source CLI for diagnosing public remote MCP endpoints from your own machine.
 No hosted service, account, database, dashboard, or API key. Python 3.11+; MIT licensed.
 
+[Releases](https://github.com/OlegNickeshin/canmcp/releases) ·
+[Report a bug](https://github.com/OlegNickeshin/canmcp/issues) ·
+[MIT license](https://github.com/OlegNickeshin/canmcp/blob/main/LICENSE)
+
+Part of **tools for an agent-native web**: small, independent open-source tools for connecting
+agents to useful services. See the
+[project series](https://github.com/OlegNickeshin/canmcp/blob/main/docs/series.md).
+
 ## Usage
 
 After a release is published to PyPI:
@@ -15,9 +23,10 @@ canmcp check https://example.com/mcp
 canmcp check https://example.com/mcp --json
 ```
 
-This source project has not been published to PyPI. From a clone, install it now:
+PyPI publication is pending. Install from GitHub now:
 
 ```sh
+git clone https://github.com/OlegNickeshin/canmcp.git
 cd canmcp
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
@@ -185,7 +194,8 @@ against arbitrary endpoints. Use the suite separately against a server you contr
 full conformance testing. CanMCP adds safe public-endpoint inspection, deployment diagnostics,
 and source-backed client profiles; it is deliberately not another conformance framework.
 
-See [sources and rule rationale](docs/sources.md) for the exact official links and profile scope.
+See [sources and rule rationale](https://github.com/OlegNickeshin/canmcp/blob/main/docs/sources.md)
+for the exact official links and profile scope.
 
 ## Safety and limits
 
@@ -227,7 +237,8 @@ requests, 16 query parameters, and an 8 KiB request line.
 
 A local scanner cannot prove reachability from OpenAI or Anthropic IP ranges, inspect account
 policies, detect every WAF rule, audit tool behavior, or compensate for a compromised local
-network, resolver configuration, CA store, or routing table. See [SECURITY.md](SECURITY.md).
+network, resolver configuration, CA store, or routing table.
+See [SECURITY.md](https://github.com/OlegNickeshin/canmcp/blob/main/SECURITY.md).
 
 ## Development
 

@@ -2,6 +2,8 @@
 
 ## 0.2.0
 
+- Prepare the first public release with package metadata, project links, and the
+  "tools for an agent-native web" series.
 - Add opt-in `canmcp check URL --oauth`: browser authorization, S256 PKCE, one-use loopback
   callback, token exchange, and protected MCP discovery/initialization and tool listing.
 - Support public native DCR or a pre-registered client pinned to an issuer, with `none`,
